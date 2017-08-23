@@ -4,8 +4,10 @@ var rp = require('request-promise');
 var cheerio = require('cheerio');
 var app = express();
 
-app.get('/scrape', function(req, res){
 
+app.get('/', function(req, res){
+  // Smaller test case:
+  // https://www.indeed.com/jobs?q=software+engineer&l=San+Francisco+Bay+Area%2C+CA&fromage=1&start=610
   var options = {
     uri: 'https://www.indeed.com/jobs?q=software+engineer&l=San+Francisco+Bay+Area%2C+CA&fromage=1',
     transform: function(body) {
@@ -14,25 +16,43 @@ app.get('/scrape', function(req, res){
   };
 
   var companyPostings = [];
-  rp(options)
-    .then(function($) {
-      var linkObj = $('a.turnstileLink').not('.jobtitle').not('.slNoUnderline');
-      Object.keys(linkObj).forEach(function(key) {
-        var link = linkObj[key];
-        if (link.attribs && link.attribs.href.startsWith('/rc')) {
-          companyPostings.push(`https://www.indeed.com/${link.attribs.href}`);
+  var doneGatheringLinks = false;
+
+  function next() {
+    return rp(options).then(function ($) {
+      if (!doneGatheringLinks) {
+        var currentPage = $('.pagination').find('b');
+        console.log(`On page: ${currentPage['0'].firstChild.data}`);
+        var linkObj = $('a.turnstileLink').not('.jobtitle').not('.slNoUnderline');
+        Object.keys(linkObj).forEach(function (key) {
+          var link = linkObj[key];
+          if (link.attribs && link.attribs.href.startsWith('/rc')) {
+            companyPostings.push(`https://www.indeed.com/${link.attribs.href}`);
+          }
+        });
+
+        var nav = $('.np');
+        var nextLink = nav['0'];
+        if (nav['1']) {
+          nextLink = nav['1'];
+        } 
+        if (nextLink.firstChild.data.slice(2, 10) === "Previous") {
+          doneGatheringLinks = true;
+        } else {
+          options.uri = `https://www.indeed.com/${nextLink.parent.parent.attribs.href}`;
         }
-      });
-      console.log(companyPostings);
+        return next();
+      } else {
+        return companyPostings;
+      }
     })
-    .catch(function(err) {
-      console.log('Error occured');
-      console.log(err);
-    });
+  }
 
-
-
- 
+  next().then(function(result) {
+    console.log(result);
+  }).catch(function(err) {
+    console.log(err);
+  })
 });
 
 app.listen('8081');
