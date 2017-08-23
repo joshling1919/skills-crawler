@@ -18,7 +18,7 @@ app.get('/', function(req, res){
   var companyPostings = [];
   var doneGatheringLinks = false;
 
-  function next() {
+  function grabLinks() {
     return rp(options).then(function ($) {
       if (!doneGatheringLinks) {
         var currentPage = $('.pagination').find('b');
@@ -36,19 +36,20 @@ app.get('/', function(req, res){
         if (nav['1']) {
           nextLink = nav['1'];
         } 
+        
         if (nextLink.firstChild.data.slice(2, 10) === "Previous") {
           doneGatheringLinks = true;
         } else {
           options.uri = `https://www.indeed.com/${nextLink.parent.parent.attribs.href}`;
         }
-        return next();
+        return grabLinks();
       } else {
         return companyPostings;
       }
     })
   }
 
-  next().then(function(result) {
+  grabLinks().then(function(result) {
     console.log(result);
   }).catch(function(err) {
     console.log(err);
