@@ -2,6 +2,7 @@ var express = require('express');
 var fs = require('fs');
 var rp = require('request-promise');
 var cheerio = require('cheerio');
+var request = require('request');
 var app = express();
 
 
@@ -40,7 +41,7 @@ app.get('/', function(req, res){
         if (nextLink.firstChild.data.slice(2, 10) === "Previous") {
           doneGatheringLinks = true;
         } else {
-          options.uri = `https://www.indeed.com/${nextLink.parent.parent.attribs.href}`;
+          options.uri = `https://www.indeed.com${nextLink.parent.parent.attribs.href}`;
         }
         return grabLinks();
       } else {
@@ -49,8 +50,15 @@ app.get('/', function(req, res){
     })
   }
 
-  grabLinks().then(function(result) {
-    console.log(result);
+  grabLinks().then(function(links) {
+    links.forEach(function(link, i) {
+      console.log(`iteration: ${i}`);
+      request(link, function(err, response, html) {
+        console.log(`Error: ${err}`);
+        console.log((`Response: ${html}`));
+
+      });
+    });
   }).catch(function(err) {
     console.log(err);
   })
